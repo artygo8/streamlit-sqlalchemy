@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "streamlit-sqlalchemy"
+version = "0.0.1"
+authors = [
+  { name="artygo8", email="arthurgossuin@gmail.com" },
+]
+description = "Some templating for streamlit and sqlalchemy"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/artygo8/streamlit-sqlalchemy"
+Issues = "https://github.com/artygo8/streamlit-sqlalchemy/issues"
