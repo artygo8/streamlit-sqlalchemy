@@ -2,7 +2,14 @@
 
 Some templating for streamlit and sqlalchemy
 
-[streamlit-sql-crud](./image.png)
+![streamlit-sql-crud](./image.png)
+
+## Status & Objectives
+
+ - [x] Integer fields
+ - [x] String fields
+ - [x] Many2One
+ - [ ] Many2Many
 
 ## Usage
 
@@ -11,43 +18,50 @@ python3 -m pip install streamlit-sqlalchemy
 python3 -m streamlit run example.py
 ```
 
-Add the mixin to your SQLAlchemy defined classes and you will have access to basic streamlit components.
+Add the mixin to your SQLAlchemy defined class
 
 ```python
-from pathlib import Path
-
-import streamlit as st
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base
-
-from streamlit_sqlalchemy import StreamlitAlchemyMixin
-
+# sqlalchemy stuff
 Base = declarative_base()
-
+engine = create_engine("sqlite:///db.sqlite3")
 
 class Awesome(Base, StreamlitAlchemyMixin):
-    __tablename__ = "car_brand"
+    __tablename__ = "awesome"
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
+    other_field = Column(Integer)
 
-# The usual SQLAlchemy stuff
-should_init = not Path("db.sqlite3").exists()
-engine = create_engine("sqlite:///db.sqlite3")
-if should_init:
-    Base.metadata.create_all(engine)
+```
 
+Then you need to link the Mixin with the `Base`, in order to have access to the foreign keys. And to the `engine` for access to the database.
+
+```python
 # Must be called before any other method
 StreamlitAlchemyMixin.sam_initialize(Base, engine)
+```
 
-Awesome.sam_create_form()
-Awesome.sam_update_form()
-Awesome.sam_delete_form()
+Then you have access to streamlit components.
+
+```python
+# The classic 3 tabs
 Awesome.sam_crud_tabs()
 
+# Create
+Awesome.sam_create_form()
+
+# Update with a select choice on top
+Awesome.sam_update_select_form()
+
+# Delete with a select choice on top
+Awesome.sam_delete_select_form()
+
 for awesome in Awesome.sam_get_all():
-    st.write(awesome.name)
-    awesome.delete_button()
+    # Update a single element
+    awesome.sam_update_form()
+
+    # Delete an element
+    awesome.sam_delete_button()
 ```
 
 ## Contribute
