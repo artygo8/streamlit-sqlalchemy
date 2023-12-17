@@ -1,12 +1,13 @@
 import sqlalchemy
 import streamlit as st
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
 class StreamlitAlchemyMixin:
     # Must be called before any other method
     @classmethod
-    def sam_initialize(cls, base_class, engine):
+    def sam_initialize(cls, base_class: DeclarativeBase, engine: Engine):
         cls.base_class = base_class
         cls.engine = engine
 
@@ -158,7 +159,12 @@ class StreamlitAlchemyMixin:
         return st.text_input
 
     def sam_delete_button(self):
-        st.button(f"Delete {self.__class__.__name__}", on_click=self._sam_delete)
+        class_name = self.__class__.__name__
+        st.button(
+            f"Delete {class_name}",
+            on_click=self._sam_delete,
+            key=f"{class_name}_{self.id}",
+        )
 
     def sam_update_form(self):
         cls = self.__class__  # TODO: remove this dependency
