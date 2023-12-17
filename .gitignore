@@ -5,3 +5,5 @@ env/
 
 .backups/
 .vscode/
+
+__pycache__/

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "streamlit-sqlalchemy"
-version = "0.0.3"
+version = "0.0.4"
 authors = [{ name = "artygo8", email = "arthurgossuin@gmail.com" }]
 description = "Some templating for streamlit and sqlalchemy"
 readme = "README.md"
@@ -16,7 +16,26 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = ["streamlit", "sqlalchemy"]
+license = "Apache-2.0"
+keywords = ["streamlit", "sqlalchemy", "templating", "sql", "database"]
 
 [project.urls]
 Homepage = "https://github.com/artygo8/streamlit-sqlalchemy"
 Issues = "https://github.com/artygo8/streamlit-sqlalchemy/issues"
+
+[tool.hatch.envs.lint]
+dependencies = ["black"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38", "py39", "py310", "py311"]
+include = '\.pyi?$'
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest"
+]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+python_files = ["test_*.py"]
