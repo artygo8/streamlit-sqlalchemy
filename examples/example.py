@@ -4,19 +4,19 @@ import streamlit as st
 from sqlalchemy import Column, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, relationship
 
-from streamlit_sqlalchemy import StreamlitAlchemyMixin
+from streamlit_sqlalchemy import declarative_streamlit_view
 
 Base = declarative_base()
 
 
-class CarBrand(Base, StreamlitAlchemyMixin):
+class CarBrand(Base):
     __tablename__ = "car_brand"
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
 
 
-class CarModel(Base, StreamlitAlchemyMixin):
+class CarModel(Base):
     __tablename__ = "car_model"
 
     id = Column(Integer, primary_key=True)
@@ -25,8 +25,10 @@ class CarModel(Base, StreamlitAlchemyMixin):
 
     brand = relationship("CarBrand", backref="cars")
 
+    def __st_order_by__(self):
+        return self.name
 
-class Car(Base, StreamlitAlchemyMixin):
+class Car(Base):
     __tablename__ = "car"
 
     id = Column(Integer, primary_key=True)
@@ -35,8 +37,17 @@ class Car(Base, StreamlitAlchemyMixin):
 
     model = relationship("CarModel", backref="cars")
 
+    def __repr__(self):
+        return f"<Car {self.model.name} {self.serial}>"
+    
+    def __st_repr__(self):
+       return f"{self.model.name} - {self.serial}"
 
-class User(Base, StreamlitAlchemyMixin):
+    def __st_order_by__(self):
+        return self.serial
+
+
+class User(Base):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
@@ -45,21 +56,29 @@ class User(Base, StreamlitAlchemyMixin):
 
     car = relationship("Car", backref="users")
 
+    def __st_order_by__(self):
+        return self.fullname
+
 
 def main():
-    CarBrand.sam_crud_tabs()
-    CarModel.sam_crud_tabs()
-    Car.sam_crud_tabs()
-    User.sam_crud_tabs()
+    car_brand_view = StreamlitView(CarBrand)
+    car_model_view = StreamlitView(CarModel)
+    car_view = StreamlitView(Car)
+    user_view = StreamlitView(User)
 
-    for user in User.sam_get_all():
+    car_brand_view.crud_tabs()
+    car_model_view.crud_tabs()
+    car_view.crud_tabs()
+    user_view.crud_tabs()
+
+    for user in user_view.get_session().query(User).all():
         st.write(
             user.fullname,
             user.car.model.brand.name,
             user.car.model.name,
             user.car.serial,
         )
-        user.sam_delete_button()
+        user_view.delete_button(user)
 
 
 if __name__ == "__main__":
@@ -68,5 +87,5 @@ if __name__ == "__main__":
     if should_init:
         Base.metadata.create_all(engine)
 
-    StreamlitAlchemyMixin.sam_initialize(Base, engine)
+    StreamlitView = declarative_streamlit_view(engine)
     main()

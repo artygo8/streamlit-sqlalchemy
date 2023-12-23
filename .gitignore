@@ -5,5 +5,6 @@ env/
 
 .backups/
 .vscode/
+.streamlit/
 
 __pycache__/

@@ -1,3 +1,3 @@
-__all__ = ["StreamlitAlchemyMixin"]
+__all__ = ["declarative_streamlit_view"]
 
-from .mixin import StreamlitAlchemyMixin
+from .streamlit_sqlalchemy_view import declarative_streamlit_view
