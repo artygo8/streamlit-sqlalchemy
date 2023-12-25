@@ -1,12 +1,28 @@
+import logging
 from pathlib import Path
 
 import streamlit as st
-from sqlalchemy import Column, ForeignKey, Integer, String, create_engine
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, relationship
 
 from streamlit_sqlalchemy import StreamlitAlchemyMixin
 
 Base = declarative_base()
+
+
+class StreamlitHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        st.toast(log_entry)
+
+
+@st.cache_resource
+def configure_logging():
+    logging.getLogger().addHandler(StreamlitHandler())
+    logging.getLogger().setLevel(logging.INFO)
+
+
+configure_logging()
 
 
 class CarBrand(Base, StreamlitAlchemyMixin):
@@ -47,19 +63,16 @@ class User(Base, StreamlitAlchemyMixin):
 
 
 def main():
-    CarBrand.sam_crud_tabs()
-    CarModel.sam_crud_tabs()
-    Car.sam_crud_tabs()
-    User.sam_crud_tabs()
+    CarBrand.st_crud_tabs()
+    CarModel.st_crud_tabs()
+    Car.st_crud_tabs()
+    User.st_crud_tabs(defaults={"fullname": "John Doe"})
 
-    for user in User.sam_get_all():
+    for user in User.st_list_all():
         st.write(
             user.fullname,
-            user.car.model.brand.name,
-            user.car.model.name,
-            user.car.serial,
         )
-        user.sam_delete_button()
+        user.st_delete_button()
 
 
 if __name__ == "__main__":
@@ -68,5 +81,5 @@ if __name__ == "__main__":
     if should_init:
         Base.metadata.create_all(engine)
 
-    StreamlitAlchemyMixin.sam_initialize(Base, engine)
+    StreamlitAlchemyMixin.st_initialize(engine)
     main()

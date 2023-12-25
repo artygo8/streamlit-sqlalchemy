@@ -1,0 +1,47 @@
+# Contributing to `streamlit_sqlalchemy`
+
+Thank you for your interest in contributing to `streamlit_sqlalchemy`! We appreciate your help in making this project better.
+
+## How to Contribute
+
+1. **Fork the Repository**: Click on the "Fork" button on the top right of this page and fork the repository to your GitHub account.
+
+2. **Clone your Fork**: Clone the repository from your GitHub account to your local machine.
+
+   ```bash
+   git clone https://github.com/your-username/streamlit_sqlalchemy.git
+   cd streamlit_sqlalchemy
+   ```
+
+3. **Create a Branch**: Create a new branch for your changes.
+
+   ```bash
+   git checkout -b feature-or-bugfix-name
+   ```
+
+4. **Make Changes**: Make your changes to the code.
+
+5. **Run Tests**: Ensure that all tests pass before submitting a pull request.
+
+   ```bash
+   pip install -e .
+   pytest tests/
+   ```
+
+6. **Commit Changes**: Commit your changes with a descriptive commit message.
+
+   ```bash
+   git commit -m "Add a concise and descriptive commit message"
+   ```
+
+7. **Push Changes**: Push your changes to your fork on GitHub.
+
+   ```bash
+   git push origin feature-or-bugfix-name
+   ```
+
+8. **Submit a Pull Request**: Open a pull request from your fork to the `main` branch of the original repository.
+
+9. **Code Review**: Participate in the code review process. Address any feedback or comments.
+
+10. **Merge**: Once your changes are approved, they will be merged into the main branch.

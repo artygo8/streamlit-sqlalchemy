@@ -1,5 +1,5 @@
 import streamlit as st
 from tests.objects import Item, OneToMany
 
-Item.sam_create_form()
-OneToMany.sam_create_form()
+Item.st_create_form()
+OneToMany.st_create_form()

@@ -1,4 +1,4 @@
 from tests.objects import Item, OneToMany
 
-Item.sam_update_select_form()
-OneToMany.sam_update_select_form()
+Item.st_update_select_form()
+OneToMany.st_update_select_form()

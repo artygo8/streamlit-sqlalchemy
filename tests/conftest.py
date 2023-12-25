@@ -11,6 +11,6 @@ from tests.objects import Base
 def database():
     db_engine = create_engine("sqlite:///test.sqlite")
     Base.metadata.create_all(db_engine)
-    StreamlitAlchemyMixin.sam_initialize(Base, db_engine)
+    StreamlitAlchemyMixin.st_initialize(db_engine)
     yield db_engine
     os.remove("test.sqlite")

@@ -1,69 +1,88 @@
-# streamlit-sqlalchemy
+# Streamlit SQLAlchemy Integration
 
-Some templating for streamlit and sqlalchemy
+## Overview
 
-![streamlit-sql-crud](./image.png)
+`streamlit_sqlalchemy` is a Python module that provides seamless integration between Streamlit and SQLAlchemy models. It simplifies the process of creating, updating, and deleting database objects through Streamlit's user-friendly interface.
 
-## Status & Objectives
+## Features
 
- - [x] Integer fields
- - [x] String fields
- - [x] Many2One
- - [ ] Many2Many
+- **Easy Initialization**: Initialize the SQLAlchemy engine with a simple method call.
+- **CRUD Operations**: Create, read, update, and delete operations are streamlined with minimal code.
+- **Dynamic Forms**: Automatically generate forms for creating and updating database objects.
+- **Tabbed Interface**: Organize CRUD operations in a tabbed interface for better user experience.
+- **Foreign Key Support**: Easily handle foreign key relationships in forms.
+
+## Installation
+
+```bash
+pip install streamlit_sqlalchemy
+```
 
 ## Usage
 
-```bash
-python3 -m pip install streamlit-sqlalchemy
-python3 -m streamlit run example.py
-```
+1. **Initialize the Engine:**
 
-Add the mixin to your SQLAlchemy defined class
+   ```python
+   from streamlit_sqlalchemy import StreamlitAlchemyMixin
+
+   # Create your SQLAlchemy model
+   class YourModel(Base, StreamlitAlchemyMixin):
+       __tablename__ = "your_model"
+
+       id = Column(Integer, primary_key=True)
+       # Other fields
+
+   # Initialize the engine
+   StreamlitAlchemyMixin.st_initialize(engine)
+   ```
+
+2. **CRUD Tabs:**
+
+   ```python
+   YourModel.st_crud_tabs()
+   ```
+
+3. **Customization:**
+
+   Customize the behavior by overriding methods in your model.
+
+   ```python
+   class CustomModel(YourModel):
+       # Override methods as needed
+   ```
+
+## Example
 
 ```python
-# sqlalchemy stuff
-Base = declarative_base()
-engine = create_engine("sqlite:///db.sqlite3")
+import streamlit as st
+from sqlalchemy import create_engine, Column, String, Integer
+from sqlalchemy.ext.declarative import declarative_base
+from streamlit_sqlalchemy import StreamlitAlchemyMixin
 
-class Awesome(Base, StreamlitAlchemyMixin):
-    __tablename__ = "awesome"
+Base = declarative_base()
+
+class ExampleModel(Base, StreamlitAlchemyMixin):
+    __tablename__ = "example"
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    other_field = Column(Integer)
 
+# Initialize the engine
+engine = create_engine("sqlite:///example.db")
+ExampleModel.st_initialize(engine)
+
+# Create CRUD tabs
+ExampleModel.st_crud_tabs()
 ```
 
-Then you need to link the Mixin with the `Base`, in order to have access to the foreign keys. And to the `engine` for access to the database.
+## Documentation
 
-```python
-# Must be called before any other method
-StreamlitAlchemyMixin.sam_initialize(Base, engine)
-```
+The project documentation is currently under development. Meanwhile, you can explore the provided [example](./examples/example.py).
 
-Then you have access to streamlit components.
+## Contributing
 
-```python
-# The classic 3 tabs
-Awesome.sam_crud_tabs()
+We welcome contributions! See our [contribution guidelines](./CONTRIBUTING) for more details.
 
-# Create
-Awesome.sam_create_form()
+## License
 
-# Update with a select choice on top
-Awesome.sam_update_select_form()
-
-# Delete with a select choice on top
-Awesome.sam_delete_select_form()
-
-for awesome in Awesome.sam_get_all():
-    # Update a single element
-    awesome.sam_update_form()
-
-    # Delete an element
-    awesome.sam_delete_button()
-```
-
-## Contribute
-
-You are welcome to contribute!
+This project is licensed under the Apache License 2.0 - see the [LICENSE](./LICENSE) file for details.
