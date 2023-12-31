@@ -1,6 +1,7 @@
 import os
-import pytest
 
+import pytest
+import streamlit as st
 from sqlalchemy import create_engine
 
 from streamlit_sqlalchemy import StreamlitAlchemyMixin
@@ -9,8 +10,8 @@ from tests.objects import Base
 
 @pytest.fixture
 def database():
-    db_engine = create_engine("sqlite:///test.sqlite")
-    Base.metadata.create_all(db_engine)
-    StreamlitAlchemyMixin.st_initialize(db_engine)
-    yield db_engine
+    connection = st.connection("test.sqlite", type="sql", url="sqlite:///test.sqlite")
+    Base.metadata.create_all(connection.engine)
+    StreamlitAlchemyMixin.st_initialize(connection)
+    yield connection
     os.remove("test.sqlite")

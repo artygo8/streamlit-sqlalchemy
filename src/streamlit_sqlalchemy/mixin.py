@@ -2,11 +2,12 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 import streamlit as st
-from sqlalchemy import Column, Engine
+from hashlib import md5
+from sqlalchemy import Boolean, Column
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, Session
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.sqltypes import Integer as SqlInteger
-
+from streamlit.connections.sql_connection import SQLConnection
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +52,16 @@ def _st_order_by(cls: type[DeclarativeBaseWithId]) -> Optional[Column]:
     return cls.id
 
 
+def _get_unique_hash(**kwargs) -> str:
+    return md5((str(kwargs)).encode("utf-8")).hexdigest()
+
+
+def _get_pretty_column_name(name: str) -> str:
+    if name.endswith("_id"):
+        name = name[:-3]
+    return " ".join(name.split("_")).title()
+
+
 if TYPE_CHECKING:
     """
     When type checking, we want to inherit from DeclarativeBaseWithId
@@ -67,14 +78,18 @@ class StreamlitAlchemyMixin(mixin_parent):
     A mixin for Streamlit integration with SQLAlchemy models.
     """
 
-    engine: Engine
-
     @classmethod
-    def st_initialize(cls, engine: Engine):
+    def st_initialize(cls, connection: Optional[SQLConnection]):
         """
         Must be called before any other method to initialize the engine.
         """
-        cls.engine = engine
+        if cls._st_is_initialized():
+            logging.warning(
+                f"StreamlitAlchemyMixin.st_initialize called multiple times for {cls.__name__}"
+            )
+            return
+
+        cls.__connection = connection
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -85,7 +100,7 @@ class StreamlitAlchemyMixin(mixin_parent):
         are only accessed after the 'st_initialize' method is called.
         """
         if item.startswith("st_"):
-            self.__ensure_initialized()
+            self.__st_ensure_initialized()
             return getattr(self, item)
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{item}'"
@@ -99,19 +114,24 @@ class StreamlitAlchemyMixin(mixin_parent):
         return _st_pretty_class_name(cls)
 
     @classmethod
-    def st_get_session(cls) -> Session:
+    def st_get_connection(cls) -> SQLConnection:
         """
         Returns a SQLAlchemy session.
         """
-        return Session(cls.engine)
+        assert cls.__connection is not None
+        return cls.__connection
 
     @classmethod
     def st_list_all(cls):
         """
         Returns a list of all objects of this class.
         """
-        query = cls.st_get_session().query(cls).order_by(_st_order_by(cls))
-        return query.all()
+        conn = cls.st_get_connection()
+        result = None
+        with conn.session as session:
+            query = session.query(cls).order_by(_st_order_by(cls))
+            result = query.all()
+        return result
 
     @classmethod
     def st_create_form(cls, defaults=None):
@@ -128,8 +148,10 @@ class StreamlitAlchemyMixin(mixin_parent):
         if defaults is None:
             defaults = {}
 
-        st.markdown(f"### New {cls.st_pretty_class()}")
-        with st.form(f"create_{cls.__name__}", clear_on_submit=True):
+        unique_hash = _get_unique_hash(**defaults)
+        with st.form(
+            f"create_{cls.__name__}_{unique_hash}", clear_on_submit=True, border=False
+        ):
             kwargs = {}
             for column in cls.__table__.columns:
                 if column.name == "id":
@@ -142,7 +164,7 @@ class StreamlitAlchemyMixin(mixin_parent):
                 kwargs.update(
                     {
                         column.name: input_function(
-                            " ".join(column.name.split("_")).title()
+                            _get_pretty_column_name(column.name),
                         )
                     }
                 )
@@ -176,7 +198,8 @@ class StreamlitAlchemyMixin(mixin_parent):
             format_func=lambda obj: _st_repr(obj),
         )
         if selected_obj_to_update:
-            selected_obj_to_update.st_update_form()
+            if selected_obj_to_update.st_update_form():
+                st.rerun()
 
     @classmethod
     def st_delete_select_form(cls):
@@ -190,9 +213,10 @@ class StreamlitAlchemyMixin(mixin_parent):
             format_func=lambda obj: _st_repr(obj),
         )
         if selected_obj_to_delete:
-            with st.form(f"delete_{cls.__name__}", clear_on_submit=True):
+            with st.form(f"delete_{cls.__name__}", clear_on_submit=True, border=False):
                 if st.form_submit_button(f"Delete {cls.st_pretty_class()}"):
                     selected_obj_to_delete._st_session_delete()
+                    st.rerun()
 
     @classmethod
     def st_crud_tabs(cls, defaults=None):
@@ -232,8 +256,9 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             class_ = cls._st_get_class_by_tablename(foreign_table_name)
 
-            session = cls.st_get_session()
-            choices = session.query(class_).all()  # type: ignore
+            conn = cls.st_get_connection()
+            with conn.session as session:
+                choices = session.query(class_).all()  # type: ignore
 
             choices.sort(key=_st_order_by)
 
@@ -256,6 +281,22 @@ class StreamlitAlchemyMixin(mixin_parent):
                 return st.number_input(*a, **kw)
 
             return number_input
+
+        if isinstance(column.type, Boolean):
+            value = None
+            if column.default:
+                value = column.default.arg
+            if not isinstance(value, bool):
+                value = None
+
+            def boolean_select(*a, **kw):
+                options = [True, False]
+                selected = kw.pop("value") if "value" in kw else value
+                index = options.index(selected) if selected is not None else None
+                return st.selectbox(*a, options=[True, False], index=index, **kw)
+
+            return boolean_select
+
         return st.text_input
 
     @classmethod
@@ -275,57 +316,100 @@ class StreamlitAlchemyMixin(mixin_parent):
         raise RuntimeError(f"Class with tablename {tablename} not found")
 
     @classmethod
-    def _st_create(cls, **kwargs):
+    def _st_is_initialized(cls) -> bool:
+        """
+        Returns whether or not the engine is initialized.
+        """
+        return hasattr(cls, "__connection")
+
+    @classmethod
+    def _st_create(cls, **kwargs) -> None:
         """
         Creates a new object of this class.
         """
         obj = cls(**kwargs)
-        obj._st_session_add()
+        conn = cls.st_get_connection()
+        with conn.session as session, session.begin():
+            try:
+                session.add(obj)
+            except IntegrityError as e:
+                logging.exception(
+                    f"*Error creating {cls.st_pretty_class()} {_st_repr(obj)}!*\n\n{e.orig}"
+                )
+            else:
+                logging.info(f"{cls.st_pretty_class()} Added")
 
     @classmethod
-    def _st_update(cls, **kwargs):
+    def _st_update(cls, **kwargs) -> None:
         """
         Updates an existing object of this class.
         """
         obj = cls(**kwargs)
-        obj._st_session_update()
+        conn = cls.st_get_connection()
+        with conn.session as session, session.begin():
+            try:
+                session.query(cls).filter_by(id=obj.id).update(
+                    {
+                        column.name: getattr(obj, column.name)
+                        for column in obj.__table__.columns
+                    }
+                )
+            except IntegrityError as e:
+                logging.exception(
+                    f"*Error updating {cls.st_pretty_class()} {_st_repr(obj)}!*\n\n{e.orig}"
+                )
+            else:
+                logging.info(f"{cls.st_pretty_class()} Updated")
 
-    def st_edit_button(self, label, kwargs):
+    def st_edit_button(self, label, values: dict[str, Any], **kwargs) -> bool:
         """
         Renders a button to edit this object.
 
         :param label: The label for the button.
-        :param kwargs: The keyword arguments to pass to the update method.
+        :param values: The keyword arguments to pass to the update method.
+        :param kwargs: Additional keyword arguments to pass to the button.
 
         Example:
         ```
         user.st_edit_button("Deactivate", {"active": False})
         ```
         """
-        class_name = self.__class__.__name__
-        st.button(
+        unique_hash = _get_unique_hash(label=label, **values, **kwargs)
+
+        def _update(**kw):
+            for k, v in kw.items():
+                setattr(self, k, v)
+            self._st_session_update()
+
+        return st.button(
             label,
-            on_click=self._st_update,
-            kwargs=kwargs,
-            key=f"{class_name}_{self.id}",
+            on_click=_update,
+            kwargs=values,
+            key=f"edit_{self.__class__.__name__}_{self.id}_{unique_hash}",
+            **kwargs,
         )
 
-    def st_delete_button(self):
+    def st_delete_button(self, label="Delete", **kwargs):
         """
         Renders a button to delete this object.
+
+        :param label: The label for the button.
+        :param kwargs: Additional keyword arguments to pass to the button.
         """
-        class_name = self.__class__.__name__
+
         st.button(
-            f"Delete {self.st_pretty_class()}",
+            label=label,
             on_click=self._st_session_delete,
-            key=f"{class_name}_{self.id}",
+            key=f"delete_{self.__class__.__name__}_{self.id}",
+            **kwargs,
         )
 
     def st_update_form(self):
         """
         Renders a form to update this object.
         """
-        with st.form(f"update_{self.id}"):
+
+        with st.form(f"update_{self.id}", border=False):
             kwargs = {
                 column.name: getattr(self, column.name)
                 for column in self.__table__.columns
@@ -338,17 +422,19 @@ class StreamlitAlchemyMixin(mixin_parent):
                 kwargs.update(
                     {
                         column.name: input_function(
-                            (" ".join(column.name.split("_")).title()),
+                            _get_pretty_column_name(column.name),
                             value=kwargs[column.name],
                         )
                     }
                 )
 
-            if st.form_submit_button(f"Update {self.st_pretty_class()}"):
+            submitted = st.form_submit_button(f"Update {self.st_pretty_class()}")
+            if submitted:
                 for field in kwargs:
                     if field.endswith("_id"):
                         kwargs[field] = kwargs[field].id
                 self._st_update(**kwargs)
+        return submitted
 
     def _get_first_column_name(self, cls: type[DeclarativeBase]) -> Optional[str]:
         """
@@ -358,27 +444,12 @@ class StreamlitAlchemyMixin(mixin_parent):
             if col.name != "id":
                 return col.name
 
-    def _st_session_add(self):
-        """
-        Adds this object to the session.
-        """
-        session = self.st_get_session()
-        with session.begin():
-            try:
-                session.add(self)
-            except IntegrityError as e:
-                logging.exception(
-                    f"*Error creating {self.st_pretty_class()} {_st_repr(self)}!*\n\n{e.orig}"
-                )
-            else:
-                logging.info(f"{self.st_pretty_class()} Added")
-
     def _st_session_delete(self):
         """
         Deletes this object from the session.
         """
-        session = self.st_get_session()
-        with session.begin():
+        conn = self.st_get_connection()
+        with conn.session as session, session.begin():
             try:
                 session.delete(self)
             except IntegrityError as e:
@@ -391,9 +462,11 @@ class StreamlitAlchemyMixin(mixin_parent):
     def _st_session_update(self):
         """
         Updates this object in the session.
+        This is not the same as the st_update method, which creates
+        a new object and replaces the old one.
         """
-        session = self.st_get_session()
-        with session.begin():
+        conn = self.st_get_connection()
+        with conn.session as session, session.begin():
             try:
                 session.query(self.__class__).filter_by(id=self.id).update(
                     {
@@ -408,11 +481,11 @@ class StreamlitAlchemyMixin(mixin_parent):
             else:
                 logging.info(f"{self.st_pretty_class()} Updated")
 
-    def __ensure_initialized(self):
+    def __st_ensure_initialized(self):
         """
         Ensures that the engine is initialized.
         """
-        if not hasattr(self, "engine"):
+        if not self._st_is_initialized():
             raise RuntimeError(
                 "You must call StreamlitAlchemyMixin.st_initialize(engine) "
                 "before using any StreamlitAlchemyMixin methods."

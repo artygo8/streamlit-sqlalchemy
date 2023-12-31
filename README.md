@@ -51,7 +51,7 @@ pip install streamlit_sqlalchemy
        # Override methods as needed
    ```
 
-## Example
+## Simple Example
 
 ```python
 import streamlit as st
@@ -67,17 +67,85 @@ class ExampleModel(Base, StreamlitAlchemyMixin):
     id = Column(Integer, primary_key=True)
     name = Column(String)
 
-# Initialize the engine
-engine = create_engine("sqlite:///example.db")
-ExampleModel.st_initialize(engine)
+# Initialize the connection
+CONNECTION = st.connection("example_db", type="sql")
+Base.metadata.create_all(CONNECTION.engine)
+StreamlitAlchemyMixin.st_initialize(CONNECTION)
 
 # Create CRUD tabs
 ExampleModel.st_crud_tabs()
 ```
 
-## Documentation
+## Comprehensive Example
 
-The project documentation is currently under development. Meanwhile, you can explore the provided [example](./examples/example.py).
+```python
+import logging
+from pathlib import Path
+
+import streamlit as st
+
+from examples.models import Base, Task, User
+from streamlit_sqlalchemy import StreamlitAlchemyMixin
+
+
+def show_single_task(task):
+    col1, col2, col3 = st.columns([1, 1, 1])
+    if task.done:
+        col1.write(f" - ~~{task.description}~~")
+        with col2:
+            task.st_delete_button()
+    else:
+        col1.write(f" - {task.description}")
+        with col2:
+            task.st_edit_button("Done", {"done": True})
+        with col3:
+            task.st_delete_button()
+
+
+def app():
+    st.title("Streamlit SQLAlchemy Demo")
+
+    User.st_crud_tabs()
+
+    with CONNECTION.session as session:
+        for user in session.query(User).all():
+            with st.expander(f"### {user.name}'s tasks:", expanded=True):
+                c = st.container()
+
+                st.write("**Add a new task:**")
+                Task.st_create_form(defaults={"user_id": user.id, "done": False})
+                with c:
+                    if not user.tasks:
+                        st.caption("No tasks yet.")
+
+                    for task in user.tasks:
+                        show_single_task(task)
+
+
+def main():
+    if not Path("example.db").exists():
+        Base.metadata.create_all(CONNECTION.engine)
+
+    StreamlitAlchemyMixin.st_initialize(connection=CONNECTION)
+
+    app()
+
+
+if __name__ == "__main__":
+    # initialize the database connection
+    # (see https://docs.streamlit.io/library/api-reference/connections/st.connection)
+    CONNECTION = st.connection("example_db", type="sql")
+    main()
+```
+
+You can explore this provided [example](./examples/example.py), and launch it from the root directory (because it relies on relative imports):
+
+```bash
+python -m streamlit run examples/example.py
+```
+
+![assets/streamlit-example-2023-12-31-16-12-91.gif](./assets/streamlit-example-2023-12-31-16-12-91.gif)
+
 
 ## Contributing
 

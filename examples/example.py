@@ -2,84 +2,98 @@ import logging
 from pathlib import Path
 
 import streamlit as st
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, relationship
 
+from examples.models import Base, Task, User
 from streamlit_sqlalchemy import StreamlitAlchemyMixin
-
-Base = declarative_base()
-
-
-class StreamlitHandler(logging.Handler):
-    def emit(self, record):
-        log_entry = self.format(record)
-        st.toast(log_entry)
 
 
 @st.cache_resource
-def configure_logging():
-    logging.getLogger().addHandler(StreamlitHandler())
-    logging.getLogger().setLevel(logging.INFO)
+def _configure_logging():
+    class StreamlitHandler(logging.Handler):
+        def emit(self, record):
+            log_entry = self.format(record)
+            st.toast(log_entry)
+
+    logger = logging.getLogger()
+    if not any(isinstance(h, StreamlitHandler) for h in logger.handlers):
+        logger.addHandler(StreamlitHandler())
+    logger.setLevel(logging.INFO)
 
 
-configure_logging()
+def _display_inline():
+    """
+    Make the columns inline.
+    (https://stackoverflow.com/questions/69492406/streamlit-how-to-display-buttons-in-a-single-line)
+    """
+    st.markdown(
+        """
+        <style>
+            div[data-testid="column"] {
+                width: fit-content !important;
+                flex: unset;
+            }
+            div[data-testid="column"] * {
+                width: fit-content !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-class CarBrand(Base, StreamlitAlchemyMixin):
-    __tablename__ = "car_brand"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-
-
-class CarModel(Base, StreamlitAlchemyMixin):
-    __tablename__ = "car_model"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    brand_id = Column(Integer, ForeignKey("car_brand.id"))
-
-    brand = relationship("CarBrand", backref="cars")
+def show_single_task(task):
+    col1, col2, col3 = st.columns([1, 1, 1])
+    if task.done:
+        col1.write(f" - ~~{task.description}~~")
+        with col2:
+            task.st_delete_button()
+    else:
+        col1.write(f" - {task.description}")
+        with col2:
+            task.st_edit_button("Done", {"done": True})
+        with col3:
+            task.st_delete_button()
 
 
-class Car(Base, StreamlitAlchemyMixin):
-    __tablename__ = "car"
+def app():
+    st.title("Streamlit SQLAlchemy Demo")
 
-    id = Column(Integer, primary_key=True)
-    serial = Column(String)
-    model_id = Column(Integer, ForeignKey("car_model.id"))
+    User.st_crud_tabs()
 
-    model = relationship("CarModel", backref="cars")
+    with CONNECTION.session as session:
+        for user in session.query(User).all():
+            with st.expander(f"### {user.name}'s tasks:", expanded=True):
+                c = st.container()
 
+                st.write("**Add a new task:**")
+                Task.st_create_form(defaults={"user_id": user.id, "done": False})
+                with c:
+                    if not user.tasks:
+                        st.caption("No tasks yet.")
 
-class User(Base, StreamlitAlchemyMixin):
-    __tablename__ = "user"
-
-    id = Column(Integer, primary_key=True)
-    fullname = Column(String)
-    car_id = Column(Integer, ForeignKey("car.id"))
-
-    car = relationship("Car", backref="users")
+                    for task in user.tasks:
+                        show_single_task(task)
 
 
 def main():
-    CarBrand.st_crud_tabs()
-    CarModel.st_crud_tabs()
-    Car.st_crud_tabs()
-    User.st_crud_tabs(defaults={"fullname": "John Doe"})
+    if not Path("example.db").exists():
+        Base.metadata.create_all(CONNECTION.engine)
 
-    for user in User.st_list_all():
-        st.write(
-            user.fullname,
-        )
-        user.st_delete_button()
+    # initialize the StreamlitAlchemyMixin
+    StreamlitAlchemyMixin.st_initialize(connection=CONNECTION)
+
+    # make the columns inline
+    _display_inline()
+
+    # use the logs as toasts in the app
+    _configure_logging()
+
+    # the actual app
+    app()
 
 
 if __name__ == "__main__":
-    should_init = not Path("db.sqlite3").exists()
-    engine = create_engine("sqlite:///db.sqlite3")
-    if should_init:
-        Base.metadata.create_all(engine)
-
-    StreamlitAlchemyMixin.st_initialize(engine)
+    # initialize the database connection
+    # (see https://docs.streamlit.io/library/api-reference/connections/st.connection)
+    CONNECTION = st.connection("example_db", type="sql")
     main()

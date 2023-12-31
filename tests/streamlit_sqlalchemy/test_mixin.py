@@ -1,8 +1,4 @@
-import os
-import time
-from sqlalchemy import create_engine
 from streamlit.testing.v1 import AppTest
-from streamlit_sqlalchemy import StreamlitAlchemyMixin
 from tests.objects import Item, OneToMany
 
 
@@ -19,7 +15,7 @@ def test_create_form_no_items(database):
 
     # second form
     assert at.text_input[1].label == "First Field"
-    assert at.selectbox[0].label == "Test Item Id"
+    assert at.selectbox[0].label == "Test Item"
     assert at.selectbox[0].options == []
     assert at.button[1].label == "Create One To Many"
 
@@ -35,7 +31,7 @@ def test_create_form_one_item(database):
 
     # second form
     assert at.text_input[1].label == "First Field"
-    assert at.selectbox[0].label == "Test Item Id"
+    assert at.selectbox[0].label == "Test Item"
     assert at.selectbox[0].options == ["Test"]
     assert at.button[1].label == "Create One To Many"
 
@@ -52,7 +48,7 @@ def test_create_form_two_items(database):
 
     # second form
     assert at.text_input[1].label == "First Field"
-    assert at.selectbox[0].label == "Test Item Id"
+    assert at.selectbox[0].label == "Test Item"
     assert at.selectbox[0].options == ["Test", "Test2"]
     assert at.button[1].label == "Create One To Many"
 
@@ -170,8 +166,28 @@ def test_delete_button_several_items(database):
     ).run(timeout=10)
 
     # first form
-    assert at.button[0].label == "Delete Item"
-    assert at.button[1].label == "Delete Item"
-    assert at.button[2].label == "Delete Item"
-    assert at.button[3].label == "Delete One To Many"
+    assert at.button[0].label == "Delete"
+    assert at.button[1].label == "Delete"
+    assert at.button[2].label == "Delete"
+    assert at.button[3].label == "Delete OTM"
     assert len(at.button) == 4
+
+
+def test_edit_button(database):
+    # create item
+    Item._st_create(name="A", count=1)
+    Item._st_create(name="C", count=2)
+    Item._st_create(name="B", count=3)
+
+    OneToMany._st_create(first_field="FF", test_item_id=None)
+
+    at = AppTest.from_file(
+        "tests/streamlit_sqlalchemy/mixin/edit_button.py",
+        default_timeout=10,
+    ).run(timeout=10)
+
+    # first form
+    assert at.button[0].label == "Add 1"
+    assert at.button[1].label == "Add 1"
+    assert at.button[2].label == "Add 1"
+    assert len(at.button) == 3
