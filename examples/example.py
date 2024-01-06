@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -48,7 +49,13 @@ def show_single_task(task):
         with col2:
             task.st_delete_button()
     else:
-        col1.write(f" - {task.description}")
+        if task.due_date:
+            date_color = "red" if task.due_date < datetime.now() else "green"
+            col1.write(
+                f" - {task.description} (:{date_color}[{task.due_date.strftime('%H:%M - %d.%m.%Y')}])"
+            )
+        else:
+            col1.write(f" - {task.description}")
         with col2:
             task.st_edit_button("Done", {"done": True})
         with col3:
@@ -62,7 +69,7 @@ def app():
 
     with CONNECTION.session as session:
         for user in session.query(User).all():
-            with st.expander(f"### {user.name}'s tasks:", expanded=True):
+            with st.expander(f"### {user.name}'s tasks:"):
                 c = st.container()
 
                 st.write("**Add a new task:**")

@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+import streamlit as st
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import declarative_base, relationship
 
 from streamlit_sqlalchemy import StreamlitAlchemyMixin
@@ -19,6 +20,12 @@ class Task(Base, StreamlitAlchemyMixin):
     id = Column(Integer, primary_key=True)
     description = Column(String)
     done = Column(Boolean, default=False)
+    due_date = Column(DateTime)
+
     user_id = Column(Integer, ForeignKey("user.id"))
 
     user = relationship("User", backref="tasks")
+
+    __st_input_meta__ = {
+        "description": lambda *a, **kw: st.text_area(*a, **kw, height=100),
+    }

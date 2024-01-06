@@ -1,9 +1,10 @@
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import date, datetime
+from hashlib import md5
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 import streamlit as st
-from hashlib import md5
-from sqlalchemy import Boolean, Column
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, Text, Time
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.sqltypes import Integer as SqlInteger
@@ -18,6 +19,11 @@ logging.basicConfig(
 
 class DeclarativeBaseWithId(DeclarativeBase):
     id: Column
+
+
+class InputFunction(Protocol):
+    def __call__(self, label: str, value: Any | None = None) -> Any:
+        ...
 
 
 def _st_pretty_class_name(cls: type[DeclarativeBase]) -> str:
@@ -78,6 +84,10 @@ class StreamlitAlchemyMixin(mixin_parent):
     A mixin for Streamlit integration with SQLAlchemy models.
     """
 
+    __st_input_meta__: dict[str, InputFunction]
+    __st_repr__: str | None
+    __st_order_by__: Callable | None
+
     @classmethod
     def st_initialize(cls, connection: Optional[SQLConnection]):
         """
@@ -122,23 +132,27 @@ class StreamlitAlchemyMixin(mixin_parent):
         return cls.__connection
 
     @classmethod
-    def st_list_all(cls):
+    def st_list_all(cls, filter_by: Optional[dict] = None):
         """
         Returns a list of all objects of this class.
+
+        :param filter_by: A dictionary of keyword arguments to filter by.
         """
+        filter_by = filter_by or {}
         conn = cls.st_get_connection()
-        result = None
         with conn.session as session:
-            query = session.query(cls).order_by(_st_order_by(cls))
-            result = query.all()
-        return result
+            query = (
+                session.query(cls).order_by(_st_order_by(cls)).filter_by(**filter_by)
+            )
+            return query.all()
 
     @classmethod
-    def st_create_form(cls, defaults=None):
+    def st_create_form(cls, defaults: Optional[dict] = None, *, border: bool = False):
         """
         Renders a form to create a new object of this class.
 
         :param defaults: A dictionary of default values for the form.
+        :param border: Whether or not to display a border around the form.
 
         Example:
         ```
@@ -150,7 +164,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
         unique_hash = _get_unique_hash(**defaults)
         with st.form(
-            f"create_{cls.__name__}_{unique_hash}", clear_on_submit=True, border=False
+            f"create_{cls.__name__}_{unique_hash}", clear_on_submit=True, border=border
         ):
             kwargs = {}
             for column in cls.__table__.columns:
@@ -187,44 +201,71 @@ class StreamlitAlchemyMixin(mixin_parent):
                 cls._st_create(**kwargs)
 
     @classmethod
-    def st_update_select_form(cls):
+    def st_update_select_form(
+        cls,
+        filter_by: Optional[dict] = None,
+        except_columns: Optional[list] = None,
+        *,
+        border: bool = False,
+    ):
         """
         Renders a form to select an object of this class to update.
+
+        :param filter_by: A dictionary of keyword arguments to filter by.
+        :param except_columns: A list of column names to exclude from the form.
+        :param border: Whether or not to display a border around the form.
         """
         selected_obj_to_update = st.selectbox(
             f"Select {cls.st_pretty_class()} to Update",
-            cls.st_list_all(),
+            cls.st_list_all(filter_by=filter_by),
             index=None,
             format_func=lambda obj: _st_repr(obj),
         )
         if selected_obj_to_update:
-            if selected_obj_to_update.st_update_form():
+            if selected_obj_to_update.st_update_form(
+                except_columns=except_columns, border=border
+            ):
                 st.rerun()
 
     @classmethod
-    def st_delete_select_form(cls):
+    def st_delete_select_form(
+        cls, filter_by: Optional[dict] = None, *, border: bool = False
+    ):
         """
         Renders a form to select an object of this class to delete.
+
+        :param filter_by: A dictionary of keyword arguments to filter by.
+        :param border: Whether or not to display a border around the form.
         """
         selected_obj_to_delete = st.selectbox(
             f"Select {cls.st_pretty_class()} to Delete",
-            cls.st_list_all(),
+            cls.st_list_all(filter_by=filter_by),
             index=None,
             format_func=lambda obj: _st_repr(obj),
         )
         if selected_obj_to_delete:
-            with st.form(f"delete_{cls.__name__}", clear_on_submit=True, border=False):
+            with st.form(f"delete_{cls.__name__}", clear_on_submit=True, border=border):
                 if st.form_submit_button(f"Delete {cls.st_pretty_class()}"):
                     selected_obj_to_delete._st_session_delete()
                     st.rerun()
 
     @classmethod
-    def st_crud_tabs(cls, defaults=None):
+    def st_crud_tabs(
+        cls,
+        defaults: Optional[dict] = None,
+        filter_by: Optional[dict] = None,
+        except_columns: Optional[list] = None,
+        *,
+        border: bool = False,
+    ):
         """
         Renders a tabbed interface for creating, updating, and deleting
         objects of this class.
 
         :param defaults: A dictionary of default values for the create form.
+        :param filter_by: A dictionary of keyword arguments to filter by.
+        :param except_columns: A list of column names to exclude from the update form.
+        :param border: Whether or not to display a border around the forms.
 
         Example:
         ```
@@ -239,17 +280,40 @@ class StreamlitAlchemyMixin(mixin_parent):
             ]
         )
         with create_tab:
-            cls.st_create_form(defaults=defaults)
+            cls.st_create_form(defaults=defaults, border=border)
         with update_tab:
-            cls.st_update_select_form()
+            cls.st_update_select_form(
+                filter_by=filter_by, except_columns=except_columns, border=border
+            )
         with delete_tab:
-            cls.st_delete_select_form()
+            cls.st_delete_select_form(filter_by=filter_by, border=border)
 
     @classmethod
-    def _st_get_input_function(cls, column):
+    def _st_get_default_input_function(cls, column) -> Optional[InputFunction]:
+        """
+        Returns a default input for the given column, using the provided
+        __st_input_meta__ dictionary if available.
+
+        :param column: The column to get the default input for.
+        """
+
+        if hasattr(cls, "__st_input_meta__"):
+            return cls.__st_input_meta__.get(column.name)  # type: ignore
+
+        return None
+
+    @classmethod
+    def _st_get_input_function(cls, column) -> InputFunction:
         """
         Returns an input function for the given column.
         """
+        default_input = cls._st_get_default_input_function(column)
+        if default_input is not None:
+            return default_input
+
+        def get_default_value(column, default=None):
+            return column.default.arg if column.default else default
+
         if column.foreign_keys:
             # create a new set and pop the only element
             foreign_table_name = set(column.foreign_keys).pop().column.table.name
@@ -262,45 +326,100 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             choices.sort(key=_st_order_by)
 
-            return lambda *a, **kw: st.selectbox(
-                *a, index=None, options=choices, format_func=_st_repr, **kw
-            )
+            def selectbox(label, value=None):
+                # we don't want to use the default value here
+                return st.selectbox(
+                    label,
+                    index=None,
+                    options=choices,
+                    format_func=_st_repr,
+                )
+
+            return selectbox
 
         if isinstance(column.type, SqlInteger):
-            value = 0
-            if column.default:
-                value = column.default.arg
-            if not isinstance(value, int):
-                value = 0
+            default = get_default_value(column, default=0)
 
-            def number_input(*a, **kw):
-                if "value" not in kw:
-                    kw["value"] = value
-                if "step" not in kw:
-                    kw["step"] = 1
-                return st.number_input(*a, **kw)
+            def number_input(label, value=None):
+                value = value if value is not None else default
+                return st.number_input(label, value=value, step=1)
 
             return number_input
 
-        if isinstance(column.type, Boolean):
-            value = None
-            if column.default:
-                value = column.default.arg
-            if not isinstance(value, bool):
-                value = None
+        if isinstance(column.type, Float):
+            default = get_default_value(column, default=0.0)
 
-            def boolean_select(*a, **kw):
+            def float_input(label, value=None):
+                value = value if value is not None else default
+                return st.number_input(label, value=value, step=0.1)
+
+            return float_input
+
+        if isinstance(column.type, Boolean):
+            default = get_default_value(column)
+
+            def boolean_select(label, value=None):
                 options = [True, False]
-                selected = kw.pop("value") if "value" in kw else value
+                selected = value if value is not None else default
                 index = options.index(selected) if selected is not None else None
-                return st.selectbox(*a, options=[True, False], index=index, **kw)
+                return st.selectbox(label, options=[True, False], index=index)
 
             return boolean_select
 
-        return st.text_input
+        if isinstance(column.type, DateTime):
+            default = get_default_value(column, default=datetime.now())
+
+            def datetime_input(label, value=None):
+                value = value if value is not None else default
+                value_date = value.date()
+                value_time = value.time().replace(minute=0, second=0, microsecond=0)
+
+                selected_date = st.date_input(label, value=value_date)
+                selected_time = st.time_input(
+                    label, value=value_time, label_visibility="collapsed"
+                )
+
+                assert isinstance(selected_date, date)
+                return datetime.combine(selected_date, selected_time)
+
+            return datetime_input
+
+        if isinstance(column.type, Date):
+            default = get_default_value(column, default=date.today())
+
+            def date_input(label, value=None):
+                value = value if value is not None else default
+                return st.date_input(label, value=value)
+
+            return date_input
+
+        if isinstance(column.type, Time):
+            default = get_default_value(column, default=datetime.now().time())
+
+            def time_input(label, value=None):
+                value = value if value is not None else default
+                value = value.replace(minute=0, second=0, microsecond=0)
+                return st.time_input(label, value=value)
+
+            return time_input
+
+        default = get_default_value(column, default="")
+        if isinstance(column.type, Text):
+
+            def text_area(label, value=None):
+                value = value if value is not None else default
+                return st.text_area(label, value=value)
+
+            return text_area
+
+        def text_input(label, value=None):
+            value = value if value is not None else default
+            return st.text_input(label, value=value)
+
+        return text_input
 
     @classmethod
-    def _st_get_class_by_tablename(cls, tablename):
+    def _st_get_class_by_tablename(cls, tablename: str):
         """
         Returns the class for the given tablename.
 
@@ -361,7 +480,7 @@ class StreamlitAlchemyMixin(mixin_parent):
             else:
                 logging.info(f"{cls.st_pretty_class()} Updated")
 
-    def st_edit_button(self, label, values: dict[str, Any], **kwargs) -> bool:
+    def st_edit_button(self, label: str, values: dict[str, Any], **kwargs) -> bool:
         """
         Renders a button to edit this object.
 
@@ -389,14 +508,13 @@ class StreamlitAlchemyMixin(mixin_parent):
             **kwargs,
         )
 
-    def st_delete_button(self, label="Delete", **kwargs):
+    def st_delete_button(self, label: str = "Delete", **kwargs):
         """
         Renders a button to delete this object.
 
         :param label: The label for the button.
         :param kwargs: Additional keyword arguments to pass to the button.
         """
-
         st.button(
             label=label,
             on_click=self._st_session_delete,
@@ -404,18 +522,30 @@ class StreamlitAlchemyMixin(mixin_parent):
             **kwargs,
         )
 
-    def st_update_form(self):
+    def st_update_form(
+        self, except_columns: Optional[list] = None, *, border: bool = False
+    ) -> bool:
         """
         Renders a form to update this object.
-        """
 
-        with st.form(f"update_{self.id}", border=False):
+        :param except_columns: A list of column names to exclude from the form.
+        :param border: Whether or not to display a border around the form.
+        """
+        except_columns = except_columns or []
+
+        unique_hash = _get_unique_hash(except_columns=except_columns)
+        with st.form(
+            f"update_{self.__class__.__name__}_{self.id}_{unique_hash}", border=border
+        ):
             kwargs = {
                 column.name: getattr(self, column.name)
                 for column in self.__table__.columns
             }
             for column in self.__table__.columns:
                 if column.name == "id" or column.name.endswith("_id"):
+                    continue
+
+                if column.name in except_columns:
                     continue
 
                 input_function = self._st_get_input_function(column)

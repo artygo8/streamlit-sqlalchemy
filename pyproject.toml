@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "streamlit-sqlalchemy"
-version = "0.0.6"
+version = "0.1.0"
 authors = [{ name = "artygo8", email = "arthurgossuin@gmail.com" }]
 description = "Some templating for streamlit and sqlalchemy"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
