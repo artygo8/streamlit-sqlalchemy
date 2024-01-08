@@ -4,6 +4,9 @@
 
 `streamlit_sqlalchemy` is a Python module that provides seamless integration between Streamlit and SQLAlchemy models. It simplifies the process of creating, updating, and deleting database objects through Streamlit's user-friendly interface.
 
+![assets/crud_create.png](./assets/crud_create.png)
+![assets/crud_update.png](./assets/crud_update.png)
+
 ## Features
 
 - **Easy Initialization**: Initialize the SQLAlchemy connection with a simple method call.
@@ -30,7 +33,11 @@ pip install streamlit_sqlalchemy
         __tablename__ = "your_model"
 
         id = Column(Integer, primary_key=True)
-        # Other columns...
+        name = Column(String)
+        active = Column(Boolean, default=True)
+        count = Column(Integer)
+        text = Column(Text)
+        created_at = Column(DateTime)
 
     # Initialize the connection
         StreamlitAlchemyMixin.st_initialize(connection=conn)
