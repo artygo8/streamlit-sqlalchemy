@@ -471,6 +471,7 @@ class StreamlitAlchemyMixin(mixin_parent):
                     {
                         column.name: getattr(obj, column.name)
                         for column in obj.__table__.columns
+                        if column.name != "id"
                     }
                 )
             except IntegrityError as e:
