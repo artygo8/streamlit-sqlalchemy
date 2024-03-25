@@ -22,8 +22,7 @@ class DeclarativeBaseWithId(DeclarativeBase):
 
 
 class InputFunction(Protocol):
-    def __call__(self, label: str, value: Any | None = None) -> Any:
-        ...
+    def __call__(self, label: str, value: Any | None = None) -> Any: ...
 
 
 def _st_pretty_class_name(cls: type[DeclarativeBase]) -> str:
@@ -327,10 +326,14 @@ class StreamlitAlchemyMixin(mixin_parent):
             choices.sort(key=_st_order_by)
 
             def selectbox(label, value=None):
-                # we don't want to use the default value here
+                index = None
+                if value is not None:
+                    # value should be an id
+                    index = next(choices.index(c) for c in choices if c.id == value)
+
                 return st.selectbox(
                     label,
-                    index=None,
+                    index=index,
                     options=choices,
                     format_func=_st_repr,
                 )
@@ -543,7 +546,7 @@ class StreamlitAlchemyMixin(mixin_parent):
                 for column in self.__table__.columns
             }
             for column in self.__table__.columns:
-                if column.name == "id" or column.name.endswith("_id"):
+                if column.name == "id":
                     continue
 
                 if column.name in except_columns:
