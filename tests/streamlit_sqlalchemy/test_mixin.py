@@ -133,6 +133,58 @@ def test_update_select_form_one_item(database):
     assert len(at.button) == 0
 
 
+def test_update_form_one_item(database):
+    # create item
+    Item._st_create(name="A", count=1)
+    Item._st_create(name="C", count=2)
+    Item._st_create(name="B", count=3)
+    database.session.commit()
+    first_item = next(i for i in Item.st_list_all() if i.name == "B")  # type: ignore
+    OneToMany._st_create(first_field="FF", test_item_id=first_item.id)
+
+    at = AppTest.from_file(
+        "tests/streamlit_sqlalchemy/mixin/update_form.py",
+        default_timeout=10,
+    ).run(timeout=10)
+
+    # first form
+    assert at.text_input[0].label == "Name"
+    assert at.number_input[0].label == "Count"
+    assert at.button[0].label == "Update Item"
+
+    # second form
+    assert at.text_input[1].label == "First Field"
+    assert at.selectbox[0].label == "Test Item"
+    assert at.selectbox[0].options == ["A", "B", "C"]
+    assert at.selectbox[0].value.name == "B"  # type: ignore
+    assert at.button[1].label == "Update One To Many"
+
+
+def test_update_form_one_item_except_m2o(database):
+    # create item
+    Item._st_create(name="A", count=1)
+    Item._st_create(name="C", count=2)
+    Item._st_create(name="B", count=3)
+    database.session.commit()
+    first_item = next(i for i in Item.st_list_all() if i.name == "B")  # type: ignore
+    OneToMany._st_create(first_field="FF", test_item_id=first_item.id)
+
+    at = AppTest.from_file(
+        "tests/streamlit_sqlalchemy/mixin/update_form_except_m2o.py",
+        default_timeout=10,
+    ).run(timeout=10)
+
+    # first form
+    assert at.text_input[0].label == "Name"
+    assert at.number_input[0].label == "Count"
+    assert at.button[0].label == "Update Item"
+
+    # second form
+    assert at.text_input[1].label == "First Field"
+    assert len(at.selectbox) == 0
+    assert at.button[1].label == "Update One To Many"
+
+
 def test_update_select_form_several_items(database):
     # create item
     Item._st_create(name="A", count=1)
