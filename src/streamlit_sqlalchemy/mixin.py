@@ -98,6 +98,7 @@ class StreamlitAlchemyMixin(mixin_parent):
             )
             return
 
+        cls.__session = None
         cls.__connection = connection
 
     def __init__(self, *args, **kwargs):
@@ -131,6 +132,17 @@ class StreamlitAlchemyMixin(mixin_parent):
         return cls.__connection
 
     @classmethod
+    def st_get_active_session(cls):
+        """
+        Returns a SQLAlchemy session.
+        """
+        if cls.__session is None:
+            conn = cls.st_get_connection()
+            cls.__session = conn.session
+
+        return cls.__session
+
+    @classmethod
     def st_list_all(cls, filter_by: Optional[dict] = None):
         """
         Returns a list of all objects of this class.
@@ -138,8 +150,7 @@ class StreamlitAlchemyMixin(mixin_parent):
         :param filter_by: A dictionary of keyword arguments to filter by.
         """
         filter_by = filter_by or {}
-        conn = cls.st_get_connection()
-        with conn.session as session:
+        with cls.st_get_active_session() as session:
             query = (
                 session.query(cls).order_by(_st_order_by(cls)).filter_by(**filter_by)
             )
@@ -324,8 +335,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             class_ = cls._st_get_class_by_tablename(foreign_table_name)
 
-            conn = cls.st_get_connection()
-            with conn.session as session:
+            with cls.st_get_active_session() as session:
                 choices = session.query(class_).all()  # type: ignore
 
             choices.sort(key=_st_order_by)
@@ -463,14 +473,15 @@ class StreamlitAlchemyMixin(mixin_parent):
         Creates a new object of this class.
         """
         obj = cls(**kwargs)
-        conn = cls.st_get_connection()
-        with conn.session as session, session.begin():
+        with cls.st_get_active_session() as session:
             try:
                 session.add(obj)
+                session.commit()
             except IntegrityError as e:
                 logging.exception(
                     f"*Error creating {cls.st_pretty_class()} {_st_repr(obj)}!*\n\n{e.orig}"
                 )
+                session.rollback()
             else:
                 logging.info(f"{cls.st_pretty_class()} Added")
 
@@ -480,8 +491,7 @@ class StreamlitAlchemyMixin(mixin_parent):
         Updates an existing object of this class.
         """
         obj = cls(**kwargs)
-        conn = cls.st_get_connection()
-        with conn.session as session, session.begin():
+        with cls.st_get_active_session() as session:
             try:
                 session.query(cls).filter_by(id=obj.id).update(
                     {
@@ -490,10 +500,12 @@ class StreamlitAlchemyMixin(mixin_parent):
                         if column.name != "id"
                     }
                 )
+                session.commit()
             except IntegrityError as e:
                 logging.exception(
                     f"*Error updating {cls.st_pretty_class()} {_st_repr(obj)}!*\n\n{e.orig}"
                 )
+                session.rollback()
             else:
                 logging.info(f"{cls.st_pretty_class()} Updated")
 
@@ -595,14 +607,16 @@ class StreamlitAlchemyMixin(mixin_parent):
         """
         Deletes this object from the session.
         """
-        conn = self.st_get_connection()
-        with conn.session as session, session.begin():
+        cls = self.__class__
+        with cls.st_get_active_session() as session:
             try:
                 session.delete(self)
+                session.commit()
             except IntegrityError as e:
                 logging.exception(
                     f"*Error deleting {self.st_pretty_class()} {_st_repr(self)}!*\n\n{e.orig}"
                 )
+                session.rollback()
             else:
                 logging.info(f"{self.st_pretty_class()} Deleted")
 
@@ -612,8 +626,8 @@ class StreamlitAlchemyMixin(mixin_parent):
         This is not the same as the st_update method, which creates
         a new object and replaces the old one.
         """
-        conn = self.st_get_connection()
-        with conn.session as session, session.begin():
+        cls = self.__class__
+        with cls.st_get_active_session() as session:
             try:
                 session.query(self.__class__).filter_by(id=self.id).update(
                     {
@@ -621,10 +635,12 @@ class StreamlitAlchemyMixin(mixin_parent):
                         for column in self.__table__.columns
                     }
                 )
+                session.commit()
             except IntegrityError as e:
                 logging.exception(
                     f"*Error updating {self.st_pretty_class()} {_st_repr(self)}!*\n\n{e.orig}"
                 )
+                session.rollback()
             else:
                 logging.info(f"{self.st_pretty_class()} Updated")
 
