@@ -225,6 +225,7 @@ class StreamlitAlchemyMixin(mixin_parent):
             format_func=lambda obj: _st_repr(obj),
         )
         if selected_obj_to_update:
+            selected_obj_to_update: cls
             if selected_obj_to_update.st_update_form(
                 except_columns=except_columns, border=border
             ):
@@ -576,7 +577,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             submitted = st.form_submit_button(f"Update {self.st_pretty_class()}")
             if submitted:
-                for field in kwargs:
+                for field in set(kwargs) - set(except_columns):
                     if field.endswith("_id"):
                         kwargs[field] = kwargs[field].id
                 self._st_update(**kwargs)
