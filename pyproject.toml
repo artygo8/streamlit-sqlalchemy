@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "streamlit-sqlalchemy"
-version = "0.2.1"
+version = "0.2.2"
 authors = [{ name = "artygo8", email = "arthurgossuin@gmail.com" }]
 description = "Some templating for streamlit and sqlalchemy"
 readme = "README.md"

@@ -340,6 +340,7 @@ class StreamlitAlchemyMixin(mixin_parent):
                     index=index,
                     options=choices,
                     format_func=_st_repr,
+                    help=column.doc,
                 )
 
             return selectbox
@@ -349,7 +350,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def number_input(label, value=None):
                 value = value if value is not None else default
-                return st.number_input(label, value=value, step=1)
+                return st.number_input(label, value=value, step=1, help=column.doc)
 
             return number_input
 
@@ -358,7 +359,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def float_input(label, value=None):
                 value = value if value is not None else default
-                return st.number_input(label, value=value, step=0.1)
+                return st.number_input(label, value=value, step=0.1, help=column.doc)
 
             return float_input
 
@@ -369,7 +370,9 @@ class StreamlitAlchemyMixin(mixin_parent):
                 options = [True, False]
                 selected = value if value is not None else default
                 index = options.index(selected) if selected is not None else None
-                return st.selectbox(label, options=[True, False], index=index)
+                return st.selectbox(
+                    label, options=[True, False], index=index, help=column.doc
+                )
 
             return boolean_select
 
@@ -383,7 +386,10 @@ class StreamlitAlchemyMixin(mixin_parent):
 
                 selected_date = st.date_input(label, value=value_date)
                 selected_time = st.time_input(
-                    label, value=value_time, label_visibility="collapsed"
+                    label,
+                    value=value_time,
+                    label_visibility="collapsed",
+                    help=column.doc,
                 )
 
                 assert isinstance(selected_date, date)
@@ -396,7 +402,7 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def date_input(label, value=None):
                 value = value if value is not None else default
-                return st.date_input(label, value=value)
+                return st.date_input(label, value=value, help=column.doc)
 
             return date_input
 
@@ -405,7 +411,9 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def time_input(label, value=None):
                 value = value if value is not None else default
-                value = value.replace(minute=0, second=0, microsecond=0)
+                value = value.replace(
+                    minute=0, second=0, microsecond=0, help=column.doc
+                )
                 return st.time_input(label, value=value)
 
             return time_input
@@ -415,13 +423,13 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def text_area(label, value=None):
                 value = value if value is not None else default
-                return st.text_area(label, value=value)
+                return st.text_area(label, value=value, help=column.doc)
 
             return text_area
 
         def text_input(label, value=None):
             value = value if value is not None else default
-            return st.text_input(label, value=value)
+            return st.text_input(label, value=value, help=column.doc)
 
         return text_input
 
