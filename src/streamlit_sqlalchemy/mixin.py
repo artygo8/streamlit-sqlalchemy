@@ -146,7 +146,9 @@ class StreamlitAlchemyMixin(mixin_parent):
             return query.all()
 
     @classmethod
-    def st_create_form(cls, defaults: Optional[dict] = None, *, border: bool = False):
+    def st_create_form(
+        cls, defaults: Optional[dict] = None, *, border: bool = False
+    ) -> bool:
         """
         Renders a form to create a new object of this class.
 
@@ -198,6 +200,8 @@ class StreamlitAlchemyMixin(mixin_parent):
                     ):
                         kwargs[field] = kwargs[field].id
                 cls._st_create(**kwargs)
+
+        return submitted
 
     @classmethod
     def st_update_select_form(
@@ -512,14 +516,14 @@ class StreamlitAlchemyMixin(mixin_parent):
             **kwargs,
         )
 
-    def st_delete_button(self, label: str = "Delete", **kwargs):
+    def st_delete_button(self, label: str = "Delete", **kwargs) -> bool:
         """
         Renders a button to delete this object.
 
         :param label: The label for the button.
         :param kwargs: Additional keyword arguments to pass to the button.
         """
-        st.button(
+        return st.button(
             label=label,
             on_click=self._st_session_delete,
             key=f"delete_{self.__class__.__name__}_{self.id}",
