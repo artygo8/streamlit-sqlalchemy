@@ -578,7 +578,7 @@ class StreamlitAlchemyMixin(mixin_parent):
             submitted = st.form_submit_button(f"Update {self.st_pretty_class()}")
             if submitted:
                 for field in set(kwargs) - set(except_columns):
-                    if field.endswith("_id"):
+                    if field.endswith("_id") and kwargs[field]:
                         kwargs[field] = kwargs[field].id
                 self._st_update(**kwargs)
         return submitted
