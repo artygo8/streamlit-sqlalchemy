@@ -4,7 +4,7 @@ from hashlib import md5
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 import streamlit as st
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, Text, Time
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, Text, Time, Enum
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.sqltypes import Integer as SqlInteger
@@ -345,6 +345,17 @@ class StreamlitAlchemyMixin(mixin_parent):
                 )
 
             return selectbox
+
+        if isinstance(column.type, Enum):
+            options = [o for o in column.type._object_lookup.values() if o is not None]
+            default = get_default_value(column, default=options[0])
+
+            def enum_selectbox(label, value=None):
+                value = value if value is not None else default
+                index = options.index(value)
+                return st.selectbox(label, options=options, index=index)
+
+            return enum_selectbox
 
         if isinstance(column.type, SqlInteger):
             default = get_default_value(column, default=0)

@@ -84,11 +84,13 @@ def test_create_form_advanced(database):
     assert at.time_input[0].label == "Due Datetime"
     assert at.time_input[1].label == "Closing Time"
 
-    assert len(at.selectbox) == 2
-    assert at.selectbox[0].label == "My Bool"
-    assert at.selectbox[0].options == ["True", "False"]
-    assert at.selectbox[1].label == "Super Item"
-    assert at.selectbox[1].options == ["Test (1)", "Test3 (2)", "Test2 (3)"]
+    assert len(at.selectbox) == 3
+    assert at.selectbox[0].label == "My Enum"
+    assert at.selectbox[0].options == ["First", "Second", "Third", "None"]
+    assert at.selectbox[1].label == "My Bool"
+    assert at.selectbox[1].options == ["True", "False"]
+    assert at.selectbox[2].label == "Super Item"
+    assert at.selectbox[2].options == ["Test (1)", "Test3 (2)", "Test2 (3)"]
 
     assert len(at.checkbox) == 1
     assert at.checkbox[0].label == "My Other Bool"

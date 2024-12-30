@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import pytest
 import streamlit as st
@@ -10,8 +11,19 @@ from tests.objects import Base
 
 @pytest.fixture
 def database():
-    connection = st.connection("test.sqlite", type="sql", url="sqlite:///test.sqlite")
-    Base.metadata.create_all(connection.engine)
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test.sqlite")
+    db_url = f"sqlite:///{db_path}"
+    engine = create_engine(db_url)
+    Base.metadata.create_all(engine)
+    connection = st.connection("test", type="sql", url=db_url)
     StreamlitAlchemyMixin.st_initialize(connection)
+
     yield connection
-    os.remove("test.sqlite")
+
+    # Cleanup
+    try:
+        os.remove(db_path)
+        os.rmdir(temp_dir)
+    except (OSError, FileNotFoundError):
+        pass
