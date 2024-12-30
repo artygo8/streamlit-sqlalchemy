@@ -1,5 +1,6 @@
+import enum
 import streamlit as st
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Enum
 from sqlalchemy.orm import declarative_base, relationship
 
 from streamlit_sqlalchemy import StreamlitAlchemyMixin
@@ -7,11 +8,21 @@ from streamlit_sqlalchemy import StreamlitAlchemyMixin
 Base = declarative_base()
 
 
+class UserType(enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
+    PUBLIC = "public"
+
+    def __str__(self):
+        return self.name.lower().capitalize()
+
+
 class User(Base, StreamlitAlchemyMixin):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
+    user_type = Column(Enum(UserType))
 
 
 class Task(Base, StreamlitAlchemyMixin):

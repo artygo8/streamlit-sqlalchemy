@@ -1,3 +1,5 @@
+import enum
+from sqlalchemy.types import Enum
 import streamlit as st
 from sqlalchemy import (
     Boolean,
@@ -47,6 +49,15 @@ class SuperItem(Base, StreamlitAlchemyMixin):
     __st_order_by__ = lambda self: self.count
 
 
+class SimpleEnum(enum.Enum):
+    FIRST = "first"
+    SECOND = "second"
+    THIRD = "third"
+
+    def __str__(self):
+        return self.name.lower().capitalize()
+
+
 class AdvancedObject(Base, StreamlitAlchemyMixin):
     __tablename__ = "advanced_object"
 
@@ -54,6 +65,7 @@ class AdvancedObject(Base, StreamlitAlchemyMixin):
     name = Column(String)
     another_string = Column(String)
     yet_another_string = Column(String)
+    my_enum = Column(Enum(SimpleEnum))
     text = Column(Text)
     count = Column(Integer)
     my_float = Column(Float)
