@@ -12,7 +12,7 @@
 - **Easy Initialization**: Initialize the SQLAlchemy connection with a simple method call.
 - **CRUD Operations**: Create, read, update, and delete operations are streamlined with minimal code.
 - **Dynamic Forms**: Automatically generate forms for creating and updating database objects.
-- **SQLTypes Support**: `String`, `Text`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`.
+- **SQLTypes Support**: `String`, `Text`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Enum`.
 - **Foreign Key Support**: Easily handle foreign key relationships in forms.
 
 ## Installation
