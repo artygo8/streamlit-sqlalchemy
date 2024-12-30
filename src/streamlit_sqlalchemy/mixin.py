@@ -412,10 +412,8 @@ class StreamlitAlchemyMixin(mixin_parent):
 
             def time_input(label, value=None):
                 value = value if value is not None else default
-                value = value.replace(
-                    minute=0, second=0, microsecond=0, help=column.doc
-                )
-                return st.time_input(label, value=value)
+                value = value.replace(minute=0, second=0, microsecond=0)
+                return st.time_input(label, value=value, help=column.doc)
 
             return time_input
 
