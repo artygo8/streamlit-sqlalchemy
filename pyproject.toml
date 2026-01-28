@@ -15,7 +15,7 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
 ]
-dependencies = ["streamlit>=1.29.0", "sqlalchemy"]
+dependencies = ["streamlit>=1.29.0,<1.53.0", "sqlalchemy"]
 license = "Apache-2.0"
 keywords = ["streamlit", "sqlalchemy", "templating", "sql", "database"]
 
